@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>mir_driver</name>
+  <version>1.1.3</version>
+  <description>A reverse ROS2 bridge for the MIR250 robot</description>
+
+  <maintainer email="gianluca.galvagni@edu.unige.it">Gianluca Galvagni</maintainer>
+  <author email="gianluca.galvagni@edu.unige.it">Gianluca Galvagni</author>
+
+  <license>BSD</license>
+  <license>Apache 2.0</license>
+
+  <depend>geometry_msgs</depend>
+  <depend>mir_msgs</depend>
+  <depend>rclpy_message_converter</depend>
+  <depend>laser_scan_merger</depend>
+  <depend>nav_msgs</depend>
+  <depend>python3-websocket</depend>
+  <depend>rosgraph_msgs</depend>
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>tf2_msgs</depend>
+  <depend>visualization_msgs</depend>
+
+  <exec_depend>foxglove_bridge</exec_depend>
+
+  <exec_depend>mir_driver_node</exec_depend>
+  <exec_depend>mir_gazebo_plugins</exec_depend>
+  <exec_depend>mir_gazebo_worlds</exec_depend>
+  <exec_depend>mir_description</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+
+</package>

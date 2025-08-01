@@ -1,0 +1,65 @@
+##
+# @file twist_mux.yaml
+# @brief Configuration file for teleop node and twist multiplexer used with the MiR robot.
+#
+# This file contains parameters for the teleop node and twist multiplexer, which handle
+# various sources of velocity commands for the robot.
+
+## @brief Joy node configuration
+/joy_node:
+  ros_parameters:
+    ## @param device_id The ID of the joystick device
+    # 0 typically refers to the first joystick detected by the system
+    device_id: 0
+    
+    ## @param deadzone The minimum value for joystick axis movement to be registered
+    # Helps to ignore small, unintentional movements of the joystick
+    deadzone: 0.1
+
+## @brief Teleop node configuration
+/teleop_node:
+  ros__parameters:
+    ## @brief Linear axis mappings
+    axis_linear: 
+      x: 1  ## @param x Joystick axis for linear x movement
+      y: 3  ## @param y Joystick axis for linear y movement
+    
+    ## @brief Linear movement scaling
+    scale_linear: 
+      x: 0.2  ## @param x Scaling factor for linear x movement
+      y: 0.2  ## @param y Scaling factor for linear y movement
+    
+    ## @brief Angular axis mapping
+    axis_angular:
+      yaw: 0.2  ## @param yaw Joystick axis for yaw rotation
+    
+    ## @brief Angular movement scaling
+    scale_angular:
+      yaw: 0.2  ## @param yaw Scaling factor for yaw rotation
+
+    ## @param require_enable_button Whether an enable button is required for operation
+    require_enable_button: false
+  
+
+## @brief Twist multiplexer configuration
+/twist_mux:
+  ros_parameters:
+    ## @brief Topics configuration for different velocity command sources
+    topics:
+      ## @brief Automatic navigation velocity commands
+      automatic_navigation:
+        topic: /cmd_vel  ## @param topic Topic name for automatic navigation commands
+        timeout: 0.5     ## @param timeout Timeout for considering the command stale
+        priority: 1      ## @param priority Priority level (lower number = higher priority)
+      
+      ## @brief Joystick velocity commands
+      joystick:
+        topic: /cmd_vel_joy  ## @param topic Topic name for joystick commands
+        timeout: 0.5         ## @param timeout Timeout for considering the command stale
+        priority: 5          ## @param priority Priority level (lower number = higher priority)
+      
+      ## @brief Keyboard velocity commands
+      keyboard:
+        topic: /cmd_vel_key  ## @param topic Topic name for keyboard commands
+        timeout: 0.5         ## @param timeout Timeout for considering the command stale
+        priority: 10         ## @param priority Priority level (lower number = higher priority)

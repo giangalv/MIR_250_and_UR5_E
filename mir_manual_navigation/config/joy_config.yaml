@@ -1,0 +1,23 @@
+## @brief Teleop node configuration
+/joy_config:
+  ros__parameters:
+    ## @brief Linear axis mappings
+    axis_linear: 
+      x: 1  ## @param x Joystick axis for linear x movement
+      y: 3  ## @param y Joystick axis for linear y movement
+    
+    ## @brief Linear movement scaling
+    scale_linear: 
+      x: 0.2  ## @param x Scaling factor for linear x movement
+      y: 0.2  ## @param y Scaling factor for linear y movement
+    
+    ## @brief Angular axis mapping
+    axis_angular:
+      yaw: 0.2  ## @param yaw Joystick axis for yaw rotation
+    
+    ## @brief Angular movement scaling
+    scale_angular:
+      yaw: 0.2  ## @param yaw Scaling factor for yaw rotation
+
+    ## @param require_enable_button Whether an enable button is required for operation
+    require_enable_button: false

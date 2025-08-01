@@ -1,0 +1,16 @@
+##
+# @file joint_state_controller.yaml
+# @brief Configuration file for the joint state controller of the MiR robot.
+#
+# This file contains the parameters for the joint state controller, which is responsible
+# for publishing the states of all joints in the robot.
+
+## @brief Joint state controller configuration
+joint_state_controller:
+  ## @param type The type of the controller
+  # This specifies that we're using the JointStateController from the joint_state_controller package
+  type: joint_state_controller/JointStateController
+  
+  ## @param publish_rate The rate at which joint states are published
+  # Joint states will be published at 50 Hz
+  publish_rate: 50

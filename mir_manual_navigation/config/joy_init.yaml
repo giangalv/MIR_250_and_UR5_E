@@ -1,0 +1,9 @@
+## @brief Joy node configuration
+joy_node:
+    ros__parameters:
+        device_id: 0
+        device_name: "''"
+        deadzone: 0.5
+        autorepeat_rate: 20.0
+        sticky_buttons: false
+        coalesce_interval_ms: 1

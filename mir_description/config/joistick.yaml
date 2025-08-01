@@ -1,0 +1,4 @@
+/joy_node:
+  ros_parameters:
+    device_id: 0
+    deadzone: 0.1
