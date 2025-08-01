@@ -1,4 +1,4 @@
-# mir_250_ros2
+# MIR 250 & UR5e
 This is a ROS2 package for MiR 250 and UR5e series.
 
 # Installation
