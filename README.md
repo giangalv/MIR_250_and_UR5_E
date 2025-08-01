@@ -55,7 +55,7 @@ In all scripts, config files, or launch files, make sure to replace:
   Example: `http://192.168.12.34` or `http://130.251.13.90`
 
 - `<your base64-encoded credentials>` with your **Base64-encoded `username:password`** for the MiR REST API.  
-  You can find `<your base64-encoded credentials>` inside the MIR dashboard Help -> API documentation -> after enter with Username & User password.
+  You can find `<your base64-encoded credentials>` inside the MIR dashboard Help -> API documentation -> after enter with Username & User password as *distributor*.
 
 # Fix time synchronization manually
 * In the Mir dashboard (mir.com in the Mir-Wifi), go to "Service" ->
