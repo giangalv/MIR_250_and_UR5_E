@@ -87,18 +87,15 @@ chmod +x time_synchronization_MIR250.sh
 
 ./time_synchronization_MIR250.sh
 ```
-Change inside `time_synchronization_MIR250.sh` the:
-  ros2_ws -> your workspace
-  mir_hostname := 'MIR_IP_ADDR'
-  mir_restapi_auth := 'YOUR_API_KEY' # for distributor
+Change inside `time_synchronization_MIR250.sh` the `ros2_ws -> your workspace`
 
 Inside the call:
-    ros2 run mir_restapi mir_restapi_server --ros-args -p mir_hostname:="MIR_IP_ADDR" -p mir_restapi_auth:="YOUR_API_KEY" #distributor
+    ros2 run mir_restapi mir_restapi_server --ros-args -p mir_hostname:="<robot-ip>" -p mir_restapi_auth:= "<your base64-encoded credentials>" #distributor
 
 * Otherwise, call them from two terminals
 
 ```bash 1
-  ros2 run mir_restapi mir_restapi_server --ros-args -p mir_hostname:="MIR_IP_ADDR" -p mir_restapi_auth := "YOUR_API_KEY"
+  ros2 run mir_restapi mir_restapi_server --ros-args -p mir_hostname:="<robot-ip>" -p mir_restapi_auth := "<your base64-encoded credentials>"
 ```
 
 ```bash 2
@@ -388,6 +385,9 @@ ros2 launch graph_based_navigation_system graph_nav_controller_launch.py
 
 
 #########################################################################
+Not yet implemented: 
+* UR5e
+and ...
 # Gazebo demo (mapping)
 
 ```bash
