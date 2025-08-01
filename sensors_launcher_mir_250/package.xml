@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>sensors_launcher_mir_250</name>
+  <version>1.0.0</version>
+  <description>ROS 2 package for handling MiR 250 sensor data merging and processing</description>
+  
+  <maintainer email="gianluca.galvagni@edu.unige.it">Gianluca Galvagni</maintainer>
+  <author email="gianluca.galvagni@edu.unige.it">Gianluca Galvagni</author>
+
+  <license>BSD-3-Clause</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+
+  <!-- Core ROS 2 dependencies -->
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+
+  <!-- Point Cloud processing -->
+  <depend>pcl_ros</depend>
+  <depend>pcl_conversions</depend>
+  <depend>libpcl-all-dev</depend>
+
+  <!-- TF and message processing -->
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_sensor_msgs</depend>
+  <depend>message_filters</depend>
+  <depend>laser_geometry</depend>
+
+  <!-- Testing -->
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_cpplint</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>ament_xmllint</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
