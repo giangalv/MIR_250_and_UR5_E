@@ -106,7 +106,6 @@ ros2 service call /mir_sync_time std_srvs/Trigger
 #### **After time sync**
 Keep in mind, that the time sync causes the mir_bridge to freeze. Therefore online time syncs are not recommended.
 
-
 # RVIZ demo test
 ```bash
 ### rviz:
@@ -114,70 +113,8 @@ ros2 launch mir_description mir_display_launch.py
 ```
 This should work and you are going to see the robot spawned in **rviz**.
 
-# Dual Laser Merger
 ## Acknowledgement
 The 3d files for MiR 250 are from [DFKI](https://github.com/DFKI-NI/mir_robot).
-
-## Example for the Laser Merger
-Before, you need to run the RVIZ demo test.
-```bash 1
-ros2 launch mir_description mir_display_launch.py
-```
-This demo shows merging of laser scan data from 2 lidars.
-```bash 2
-ros2 launch sensors_launcher_mir_250 demo_laser_merger.launch.py
-```
-
-## Requirements
-1. Lidar 1 scan topic, the messages in the topic are required to have `frame_id`.
-   ```
-   ~$ ros2 topic info /f_scan
-      Type: sensor_msgs/msg/LaserScan
-   ```
-2. Lidar 2 scan topic, the messages in the topic are required to have `frame_id`.
-   ```
-   ~$ ros2 topic info /b_scan
-      Type: sensor_msgs/msg/LaserScan
-   ```
-3. TF from Lidar 1 (`front_laser_link`) and Lidar 2 (`back_laser_link`) to Target frame (`base_link`)
-  ```
-  ~$ ros2 topic echo /tf_static 
-  transforms:
-    - header:
-        stamp:
-          sec: 1729076136
-          nanosec: 564956753
-        frame_id: base_link
-      child_frame_id: front_laser_link
-      transform:
-        translation:
-          x: 0.321967
-          y: 0.221817
-          z: 0.0
-        rotation:
-          x: 0.3826834321814926
-          y: 0.9238795325873352
-          z: 3.9573888241688663e-14
-          w: -9.553981776262265e-14
-  
-  transforms:
-    - header:
-        stamp:
-          sec: 1729076136
-          nanosec: 580013258
-        frame_id: base_link
-      child_frame_id: back_laser_link
-      transform:
-        translation:
-          x: -0.321967
-          y: -0.221817
-          z: 0.0
-        rotation:
-          x: -0.9238795324744832
-          y: 0.38268343245394154
-          z: -9.553981775095244e-14
-          w: -3.957388826986303e-14
-  ```
 
 # MOVE THE MIR 250
 ### Teleoperate the robot (optional) via the MIR network interface
