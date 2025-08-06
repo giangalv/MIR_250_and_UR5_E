@@ -5,7 +5,10 @@
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="gianluca.galvagni99@gmail.com">mir250ur5e</maintainer>
-  <license>TODO: License declaration</license>
+  <license>BSD</license>
+
+  <depend>mir_driver</depend>
+  <depend>rviz2</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

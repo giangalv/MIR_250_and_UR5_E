@@ -40,10 +40,10 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
     # === Package directories ===
-    mir_nav_dir = get_package_share_directory('mir_navigation')
     mir_driver_dir = get_package_share_directory('mir_driver')
     mir_manual_nav_dir = get_package_share_directory('mir_manual_navigation')
     mir_graph_nav_dir = get_package_share_directory('graph_based_navigation_system')
+    mir_navigation_dir = get_package_share_directory('mir_navigation')
 
     # === Launch configurations ===
     use_sim_time = LaunchConfiguration('use_sim_time')
@@ -111,7 +111,7 @@ def generate_launch_description():
     # === AMCL ===
     amcl_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(mir_nav_dir, 'launch', 'include', 'amcl.py')
+            os.path.join(mir_navigation_dir, 'launch', 'include', 'amcl.py')
         ),
         launch_arguments={
             'map': LaunchConfiguration('map_file'),
@@ -122,7 +122,7 @@ def generate_launch_description():
     # === Nav2 navigation stack === TO BE CHANGED OR THINK ABOUT HOW TO INTEGRATE WITH THE DYNAMIC GRAPH NAVIGATION SYSTEM
     nav2_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(mir_nav_dir, 'launch', 'include', 'navigation.py')
+            os.path.join(mir_navigation_dir, 'launch', 'include', 'navigation.py')
         ),
         launch_arguments={
             'map_subscribe_transient_local': 'true',

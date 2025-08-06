@@ -289,7 +289,7 @@ a little using the teleop window and the scan will eventually match the map.
 
 ## Graph Creation Tutorial
 
-After creating the base map using SLAM or mapping tools on the MiR (resulting in a .pgm or .png image and a .yaml metadata file), there is an intermediate step before actual robot navigation:
+After creating the base map using `Mapping on MIR` resulting in a .pgm image and a .yaml metadata file, there is an intermediate step before actual robot navigation via graph-based system:
 
 ### Step 1: Prepare the Map Files
 Locate the generated map files (typically in **~/mir_navigation/maps** )
@@ -303,6 +303,8 @@ Copy them to the graph system's map directory:
 ```bash
 mkdir -p ~/src/graph_based_navigation_system/maps/
 cp ~/src/mir_navigation/maps/my_map.* ~/src/graph_based_navigation_system/maps/
+cd ~/ros2_ws
+colcon build
 ```
 
 ### Step 2: Launch the Graph Editor
@@ -331,7 +333,7 @@ Simply close the window to automatically save.
 
 ### Step 6: Generate Visual Map
 ```bash
-ros2 run graph_based_navigation_system  render_graph_on_map
+ros2 run graph_based_navigation_system render_graph_on_map
 ```
 This creates:
 - `map_graph.yaml` - A visual representation of the map, enhanced with nodes, edges, and orientations overlaid on the original map image.

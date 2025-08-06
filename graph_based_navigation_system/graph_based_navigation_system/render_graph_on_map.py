@@ -55,7 +55,8 @@ def main():
     edges = graph.get('edges', [])
 
     # --- Draw the map, nodes, and edges ---
-    fig, ax = plt.subplots()
+    dpi = 100 # Set DPI for better resolution
+    fig, ax = plt.subplots(figsize=(width / dpi, height / dpi), dpi=dpi)
     ax.imshow(img, cmap='gray')
 
     for edge in edges:
@@ -77,8 +78,11 @@ def main():
 
     # --- Save annotated map ---
     output_image_path = os.path.join(maps_dir, OUTPUT_IMAGE_NAME)
+    
     plt.axis('off')
-    plt.savefig(output_image_path, bbox_inches='tight', dpi=150)
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    plt.savefig(output_image_path, dpi=dpi, bbox_inches='tight', pad_inches=0)
+
     print(f"✅ Annotated map saved to: {output_image_path}")
 
     # --- Save new YAML map with updated image name ---

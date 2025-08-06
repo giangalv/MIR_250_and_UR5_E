@@ -8,19 +8,12 @@ from ament_index_python.packages import get_package_share_directory
 # ===== Configuration =====
 MAP_NAME = 'test_TER_1'  # Base name without extension
 GRAPH_FILENAME = f'{MAP_NAME}_graph.yaml'  # Auto-generate graph filename
-PACKAGE_NAME = 'graph_based_navigation_system'
 
-# ===== Directory Setup =====
-def get_maps_directory():
-    """Get and ensure maps directory exists"""
-    map_dir = os.path.join(get_package_share_directory(PACKAGE_NAME), 'maps')
-    os.makedirs(map_dir, exist_ok=True)
-    return map_dir
+dir_graph = get_package_share_directory('graph_based_navigation_system')
 
 # ===== Main Program =====
 def main():
-    # Initialize directories
-    maps_dir = get_maps_directory()
+    maps_dir = os.path.join(dir_graph, 'maps')
     
     # === Map Loading ===
     map_yaml_path = os.path.join(maps_dir, f'{MAP_NAME}.yaml')
@@ -209,7 +202,7 @@ def main():
     print("- Nodes are automatically numbered")
     print("- Edges require selecting two different nodes")
     print("- Node orientation shown with yellow arrow")
-    print("- Graph auto-saves when closing the window")
+    print("- Graph auto-saves when closing the MAP window (don't press Ctrl+C)")
     print(f"\nWorking on map: {MAP_NAME}")
     print(f"Graph will be saved to: {graph_save_path}")
     print("="*60 + "\n")
