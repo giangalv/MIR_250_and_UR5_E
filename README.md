@@ -104,7 +104,7 @@ ros2 service call /mir_sync_time std_srvs/Trigger
 ```
 
 #### **After time sync**
-Keep in mind, that the time sync causes the mir_bridge to freeze. Therefore online time syncs are not recommended.
+Keep in mind, that the time sync causes the mir_bridge to freeze and creates problems during the navigation syncronization.
 
 # RVIZ demo test
 ```bash
