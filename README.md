@@ -207,7 +207,6 @@ Open a new terminal and launch:
 ``` bash
 ros2 launch mir_manual_navigation manual_control_launch.py
 ```
-The led's robot changes from YELLOW to GREEN (the robot state changes from Pause state to Ready state).
 
 * **Before launcing the manual_control_launch** command be sure to have the mir_launch command running.
 
