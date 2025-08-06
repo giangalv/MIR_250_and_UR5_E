@@ -90,7 +90,7 @@ chmod +x time_synchronization_MIR250.sh
 Change inside `time_synchronization_MIR250.sh` the `ros2_ws -> your workspace`
 
 Inside the call:
-    ros2 run mir_restapi mir_restapi_server --ros-args -p mir_hostname:="<robot-ip>" -p mir_restapi_auth:= "<your base64-encoded credentials>" #distributor
+ros2 run mir_restapi mir_restapi_server --ros-args -p mir_hostname:="<robot-ip>" -p mir_restapi_auth:= "<your base64-encoded credentials>" #distributor
 
 * Otherwise, call them from two terminals
 
