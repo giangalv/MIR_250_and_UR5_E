@@ -208,9 +208,9 @@ ros2 launch mir_navigation navigation.py use_sim_time:=false
 
 ```bash
 ### combined launch file:
-ros2 launch mir_navigation mir_nav_launch.py map:={path to /name of existing map or *} 
+ros2 launch mir_navigation mir_nav_launch.py map:={path to /name of existing map} 
 ```
-* just the name .yaml  inside the maps folder inside mir_navigation like `ros2 launch mir_navigation mir_nav_launch.py map:=name_map.yaml`
+* or just the map name .yaml  inside the maps folder inside mir_navigation like `ros2 launch mir_navigation mir_nav_launch.py map:=name_map.yaml`
 it launchs the driver and localization (amcl) using an existing map.`
 
 ### Workflow
