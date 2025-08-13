@@ -1,0 +1,34 @@
+# This is a configuration example file for setting up a graph-based navigation system.
+nodes:
+  0:
+    x: 0.61                  # X coordinate in meters (required)
+    y: -0.21                 # Y coordinate in meters (required)
+    yaw: 0.0                 # Orientation in radians (required)
+    name: "StartNode"        # Optional descriptive name for the node
+    navigation_config:       # Optional navigation parameters for this node
+      'xy_tolerance': 0.1,      # xy_goal_tolerance: 0.25 #Positional tolerance to goal (meters)
+      'yaw_tolerance': 0.05     # yaw_goal_tolerance: 0.05 #Angular tolerance to goal (radians)
+    #actions: []          # Optional list of actions or tasks associated with this node
+      
+############################################################################# 
+
+edges:
+  - from: 0                   # Source node ID (required)
+    to: 1                     # Destination node ID (required)
+    weight: 1.0               # Optional edge weight (default = 1.0)
+    one_way: false             # Optional edge direction (default = false)
+    description: "Ramp up to node 1 via hallway"  # Optional comment
+    navigation_config:       # Optional navigation parameters for this node
+      'max_vel_x': 0.26,           # Max linear velocity (m/s)
+      'max_vel_theta': 1.0,       # Max angular velocity (rad/s)
+      'acc_lim_x': 2.5,           # Linear acceleration limit (m/s^2)
+      'acc_lim_theta': 3.2,       # Angular acceleration limit (rad/s^2)
+      'planner': "SmacPlanner",   # Nav2 planner plugin name
+      'controller': "DWB",        # Controller plugin name
+      'inflation_radius': 0.5,    # Costmap inflation radius (meters)
+      'cost_scaling_factor': 3.0, # Costmap scaling factor
+      'obstacle_max_range': 3.0,  # Obstacle detection range (meters)
+      'obstacle_min_range': 0.05, # Minimum obstacle detection range (meters)
+      #'max_obstacle_height': 3.0, # Max height of obstacles (meters
+      'raytrace_max_range': 3.5,  # Max range for ray tracing (meters)
+      'raytrace_min_range': 0.05  # Minimum range for ray tracing (meters)

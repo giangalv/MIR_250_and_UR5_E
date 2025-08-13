@@ -7,6 +7,29 @@ class Nav2DynamicReconfig(Node):
     def __init__(self, node_name="nav2_dynamic_reconfig"):
         super().__init__(node_name)
 
+    def _make_param(self, name, value):
+        """Create a ROS2 Parameter message with correct type."""
+        if isinstance(value, bool):
+            ptype = Parameter.Type.BOOL
+        elif isinstance(value, int):
+            ptype = Parameter.Type.INTEGER
+        elif isinstance(value, float):
+            ptype = Parameter.Type.DOUBLE
+        elif isinstance(value, str):
+            ptype = Parameter.Type.STRING
+        elif isinstance(value, list):
+            # You could extend to arrays if needed
+            if all(isinstance(v, float) for v in value):
+                ptype = Parameter.Type.DOUBLE_ARRAY
+            elif all(isinstance(v, int) for v in value):
+                ptype = Parameter.Type.INTEGER_ARRAY
+            else:
+                ptype = Parameter.Type.STRING_ARRAY
+        else:
+            raise TypeError(f"Unsupported parameter type for {name}: {type(value)}")
+        
+        return Parameter(name=name, value=value).to_parameter_msg()
+
     def set_param(self, nav2_node, param_name, value):
         """Set a single Nav2 parameter dynamically."""
         client = self.create_client(SetParameters, f'/{nav2_node}/set_parameters')
@@ -15,7 +38,11 @@ class Nav2DynamicReconfig(Node):
             return False
         
         request = SetParameters.Request()
-        request.parameters = [Parameter(name=param_name, value=value).to_parameter_msg()]
+        try:
+            request.parameters = [self._make_param(param_name, value)]
+        except TypeError as e:
+            self.get_logger().error(str(e))
+            return False
         
         future = client.call_async(request)
         rclpy.spin_until_future_complete(self, future)
@@ -34,8 +61,12 @@ class Nav2DynamicReconfig(Node):
             return False
 
         request = SetParameters.Request()
-        for k, v in param_dict.items():
-            request.parameters.append(Parameter(name=k, value=v).to_parameter_msg())
+        try:
+            for k, v in param_dict.items():
+                request.parameters.append(self._make_param(k, v))
+        except TypeError as e:
+            self.get_logger().error(str(e))
+            return False
 
         future = client.call_async(request)
         rclpy.spin_until_future_complete(self, future)
