@@ -57,25 +57,15 @@ In all scripts, config files, or launch files, make sure to replace:
 - `<your base64-encoded credentials>` with your **Base64-encoded `username:password`** for the MiR REST API.  
   You can find `<your base64-encoded credentials>` inside the MIR dashboard Help -> API documentation -> after enter with Username & User password as *distributor*.
 
-# Fix time synchronization manually
+# Fix time synchronization
+### **Fix time synchronization manually**
 * In the Mir dashboard (mir.com in the Mir-Wifi), go to "Service" ->
   "Configuration" -> "System settings" -> "Time settings" -> "Set device time
   on robot"
 
 Use **load from device** to sync with the system time!
 
-### Test the connection is working
-
-This tests the connection if returning the result from the MIR the 'MIR_IP_ADDR' and
-  'MIR_API_KEY' are correct.
-
-```bash
-curl -X GET "http://<robot-ip>/api/v2.0.0/status" \
-     -H "Authorization: Basic <your base64-encoded credentials>"
-
-```
-
-### **Fix time synchronization using ROS2:**
+### **Fix time synchronization using ROS2**
 From the package `mir_restapi` a node called `mir_restapi_server` can be run, which can execute a time sync REST API call from the driver's host machine to the Mir's host.
 
 * Launch the sh file with the API key and mir hostname's IP address changed
@@ -101,6 +91,16 @@ ros2 run mir_restapi mir_restapi_server --ros-args -p mir_hostname:="<robot-ip>"
 ```bash 2
 ros2 service call /mir_sync_time std_srvs/Trigger
  
+```
+
+### Test the connection is working
+
+This tests the connection if returning the result from the MIR the 'MIR_IP_ADDR' and
+  'MIR_API_KEY' are correct.
+
+```bash
+curl -X GET "http://<robot-ip>/api/v2.0.0/status" \
+     -H "Authorization: Basic <your base64-encoded credentials>"
 ```
 
 #### **After time sync**
