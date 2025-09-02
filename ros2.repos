@@ -11,20 +11,15 @@ repositories:
     type: git
     url: https://github.com/UniversalRobots/Universal_Robots_ROS2_Description.git
     version: humble
-  twist_stamper_description
-    sudo apt install ros-humble-twist-mux
-  tf_transformations:
-    sudo apt install ros-humble-tf-transformations
+  twist_stamper_description:
+    type: git
+    url: https://github.com/ros-teleop/twist_mux.git
+    version: humble
   naviagtion2:
-    sudo apt install ros-humble-navigation2
+    type: git
+    url: https://github.com/ros-navigation/navigation2.git
+    version: humble
   slam_toolbox:
-    sudo apt install ros-humble-slam-toolbox
-  nav2:
-    sudo apt install ros-humble-nav2-*
-  graph_nav:
-    sudo pip install networkx
-
-
-  sudo apt install ros-humble-pcl-conversions ros-humble-pcl-msgs
-
-  
+    type: git
+    url: https://github.com/SteveMacenski/slam_toolbox.git
+    version: ros2
