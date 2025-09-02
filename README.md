@@ -32,11 +32,12 @@ sudo apt install ros-humble-slam-toolbox
 sudo apt install ros-humble-tf-transformations
 sudo apt install ros-humble-nav2-*
 sudo apt install ros-humble-pcl-conversions ros-humble-pcl-msgs
-sudo pip install networkx
+
 
 # use rosdep to install all dependencies (including ROS itself)
 sudo apt update
 sudo apt install -y python3-rosdep
+pip install networkx
 
 sudo apt install ros-humble-foxglove-bridge
 sudo apt install ros-humble-librealsense2*
