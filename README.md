@@ -17,6 +17,12 @@ cd ~/ros2_ws/
 # clone mir_robot into the ros2 workspace
 git clone https://github.com/giangalv/MIR_250_and_UR5_E.git
 
+# Move all files from MIR_250_and_UR5_E to src
+mv ~/ros2_ws/MIR_250_and_UR5_E/* ~/ros2_ws/src/
+
+# Remove the now empty directory
+rm -rf ~/ros2_ws/MIR_250_and_UR5_E
+
 # use vcs to fetch linked repos
 # $ sudo apt install python3-vcstool
 vcs import < src/MIR_250_and_UR5_E/ros2.repos src --recursive
