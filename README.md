@@ -15,11 +15,11 @@ mkdir -p ~/ros2_ws/src
 cd ~/ros2_ws/
 
 # clone mir_robot into the ros2 workspace
-git clone https://github.com/giangalv/mir_robot_simulation.git
+git clone https://github.com/giangalv/MIR_250_and_UR5_E.git
 
 # use vcs to fetch linked repos
 # $ sudo apt install python3-vcstool
-vcs import < src/mir_robot/ros2.repos src --recursive
+vcs import < src/MIR_250_and_UR5_E/ros2.repos src --recursive
 
 # use rosdep to install all dependencies (including ROS itself)
 sudo apt update
