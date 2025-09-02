@@ -20,6 +20,13 @@ git clone https://github.com/giangalv/MIR_250_and_UR5_E.git
 # use vcs to fetch linked repos
 # $ sudo apt install python3-vcstool
 vcs import < src/MIR_250_and_UR5_E/ros2.repos src --recursive
+#sudo apt install ros-humble-twist-mux
+#sudo apt install ros-humble-navigation2
+#sudo apt install ros-humble-slam-toolbox
+sudo apt install ros-humble-tf-transformations
+sudo apt install ros-humble-nav2-*
+sudo apt install ros-humble-pcl-conversions ros-humble-pcl-msgs
+sudo pip install networkx
 
 # use rosdep to install all dependencies (including ROS itself)
 sudo apt update
