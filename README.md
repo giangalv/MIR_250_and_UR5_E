@@ -1,63 +1,79 @@
 # MIR 250 & UR5e
 This is a ROS2 package for MiR 250 and UR5e series.
 
-# Installation
+# Prerequisites
+* Ubuntu 22.04
+* ROS 2 Humble installed
+* Python 3
 
-## Preliminaries
-## ROS2
+## ROS 2 Humble
 If you haven't already installed [ROS2](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debians.html) on your PC, you need to add the ROS2 apt repository.
 
+# Installation
 
-## Source install
+### 1. Create Workspace and Clone Repository
 ```bash
-# create a ros2 workspace
 mkdir -p ~/ros2_ws/src
 cd ~/ros2_ws/
-
-# clone mir_robot into the ros2 workspace
 git clone https://github.com/giangalv/MIR_250_and_UR5_E.git
-
-# Move all files from MIR_250_and_UR5_E to src
 mv ~/ros2_ws/MIR_250_and_UR5_E/* ~/ros2_ws/src/
-
-# Remove the now empty directory
 rm -rf ~/ros2_ws/MIR_250_and_UR5_E
-
-# use vcs to fetch linked repos
-# $ sudo apt install python3-vcstool
-vcs import < src/ros2.repos src --recursive
-sudo apt install ros-humble-twist-mux
-sudo apt install ros-humble-navigation2
-sudo apt install ros-humble-slam-toolbox
-sudo apt install ros-humble-tf-transformations
-sudo apt install ros-humble-nav2-*
-sudo apt install ros-humble-pcl-conversions ros-humble-pcl-msgs
-
-
-# use rosdep to install all dependencies (including ROS itself)
+```
+### 2. Install Required Tools
+```bash
 sudo apt update
-sudo apt install -y python3-rosdep
+sudo apt install -y python3-vcstool python3-rosdep
+```
+### 3. Import Dependencies with vcs
+```bash
+vcs import < src/ros2.repos src --recursive
+```
+### 4. Install ROS 2 Dependencies
+```bash
+# Core navigation packages
+sudo apt install -y \
+    ros-humble-twist-mux \
+    ros-humble-navigation2 \
+    ros-humble-slam-toolbox \
+    ros-humble-tf-transformations \
+    ros-humble-pcl-conversions \
+    ros-humble-pcl-msgs \
+    ros-humble-foxglove-bridge \
+    ros-humble-librealsense2*
+
+# Optional: Install all nav2 packages
+sudo apt install -y ros-humble-nav2-*
+```
+### 5. Install Python Dependencies
+```bash
 pip install networkx
-
-sudo apt install ros-humble-foxglove-bridge
-sudo apt install ros-humble-librealsense2*
-
+```
+### 6. Resolve System Dependencies
+```bash
 rosdep update --rosdistro=humble
 rosdep install --from-paths src --ignore-src -r -y --rosdistro humble
-
-# build all packages in the workspace
+```
+### 7. Build the Workspace
+```bash
 source /opt/ros/humble/setup.bash
 cd ~/ros2_ws
 colcon build
 ```
 
+## Usage
 You must source the workspace in each terminal you want to work in:
 ```bash
 source ~/ros2_ws/install/setup.bash
 ```
 
-# MiR Robot Integration – Setup Instructions
+### Verify Installation:
+```bash
+source /opt/ros/humble/setup.bash
+source ~/ros2_ws/install/setup.bash
+ros2 pkg list | grep mir  # Should show MIR-related packages
+```
 
+# MiR Robot Integration – Setup Instructions
 > ⚠️ **IMPORTANT:**  
 > Before running any scripts or commands in this repository, you must replace all placeholder values with your actual robot and authentication details.
 
