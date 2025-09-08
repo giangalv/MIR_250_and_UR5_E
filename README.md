@@ -306,7 +306,7 @@ This creates:
 - `map_with_nodes_edges.png` - An annotated version of the original map, useful for reference during development and visualization in RViz for navigation tasks.
 - `map_with_nodes_edges.yaml` - A copy of the original map metadata file, updated to reference the new annotated image.
 
-Before starting navigation, you should customize the`map_graph.yaml`file to adjust node positions and connections according to your specific navigation needs and environment layout. These modifications can be done either before generating the final map or afterward if adjustments are needed.
+Before starting navigation, you should customize the`map_graph.yaml`file to adjust node positions and connections according to your specific navigation needs and environment layout. These modifications can be done either before generating the final map or afterward if adjustments are needed. Use `set_up_graph.yaml` as a reference guide to ensure proper configuration.
 
 Once the files are ready, you need to move them to the appropriate locations in the `graph_based_navigation_system` package:
 * Place `map_graph.yaml` in the `/config ` folder.
