@@ -23,18 +23,17 @@ from ament_index_python.packages import get_package_share_directory
 from graph_based_navigation_system.navigation_defaults import NavigationDefaults
 from .nav2_dynamic_reconfig import Nav2DynamicReconfig
 
+_GRAPH_NAME = 'test_TER_1'  # Default graph name, can be overridden
 
 def euclidean_distance(x1, y1, x2, y2):
     return math.hypot(x1 - x2, y1 - y2)
 
-
 class GraphNavController(Node):
     def __init__(self,):
         super().__init__('graph_nav_controller')
-        
-        _GRAPH_NAME = 'test_TER_1'  # Default graph name, can be overridden
-        # config
+
         self.GRAPH_NAME = f'{_GRAPH_NAME}_graph.yaml'
+        # From navigation_defaults.py load defaults navigation parameters
         self.defaults = NavigationDefaults()
 
         # TF
@@ -46,7 +45,8 @@ class GraphNavController(Node):
 
         # internal state
         self.nodes = {}
-        self.G = nx.Graph()
+        self.edges = {}
+        self.DG = nx.DiGraph()
 
         # load graph
         self.graph_file = self.get_graph_path()
@@ -94,27 +94,88 @@ class GraphNavController(Node):
         with open(self.graph_file, 'r') as fh:
             data = yaml.safe_load(fh)
 
-        # Load nodes as a dict {id: attributes}
+        # --- Load nodes ---
         raw_nodes = data.get('nodes', {})
-        self.nodes = {int(k): v for k, v in raw_nodes.items()}
 
-        # Build graph with raw YAML data (no defaults yet)
-        self.G = nx.Graph()
-        for nid, props in self.nodes.items():
-            self.G.add_node(nid, **props)
+        for nid, props in raw_nodes.items():
+            nid = int(nid)
+            node_data = props.copy()
 
-        # Load edges directly from YAML
-        for e in data.get('edges', []):
-            frm = e['from']
-            to = e['to']
-            # No defaults applied here
-            edge_attrs = {k: v for k, v in e.items() if k not in ('from', 'to')}
-            self.G.add_edge(frm, to, **edge_attrs)
+            # Extract navigation config if present
+            nav_cfg = node_data.pop('navigation_config', {})
+            merged_nav_cfg = NavigationDefaults.NODE_DEFAULTS.copy()
+            merged_nav_cfg.update(nav_cfg)
+
+            # Flatten navigation config into node attributes
+            node_data.update(merged_nav_cfg)
+
+            # Save node attributes
+            self.nodes[nid] = node_data
+
+            # Add bare node to DG
+            self.DG.add_node(nid)
+
+        # --- Load edges ---
+        raw_edges = data.get('edges', [])
+        weighted_edges = []
+
+        for e in raw_edges:
+            frm = int(e['from'])
+            to = int(e['to'])
+
+            # Defaults if missing
+            weight = e.get('weight', NavigationDefaults.EDGE_DEFAULTS['weight'])
+            one_way = e.get('one_way', NavigationDefaults.EDGE_DEFAULTS['one_way'])
+
+            # Merge defaults except weight & one_way
+            edge_attrs = {k: v for k, v in NavigationDefaults.EDGE_DEFAULTS.items()
+                        if k not in ('weight', 'one_way')}
+            edge_attrs.update({k: v for k, v in e.items() if k not in ('from', 'to', 'weight', 'one_way')})
+
+            # Save full attributes (no weight, no one_way)
+            self.edges[(frm, to)] = edge_attrs
+
+            # Always add forward edge to DG (with weight only)
+            weighted_edges.append((frm, to, weight))
+
+            # If two-way, add reverse edge as well
+            if not one_way:
+                #self.edges[(to, frm)] = edge_attrs
+                weighted_edges.append((to, frm, weight))
+
+        # Add weighted edges to DG
+        self.DG.add_weighted_edges_from(weighted_edges)
 
         self.get_logger().info(
-            f'Loaded graph "{self.graph_file}" with {len(self.nodes)} nodes and {self.G.number_of_edges()} edges.'
+            f'Graph with {len(self.nodes)} nodes and {self.DG.number_of_edges() // 2} edges.'
         )
 
+         # Log detailed nodes
+        self.get_logger().info("Nodes:\n" + yaml.dump(self.nodes, sort_keys=False))
+        '''
+        # Format edges for logging
+        edges_pretty = []
+        for (frm, to), attrs in self.edges.items():
+            edge_dict = {"from": frm, "to": to}
+            edge_dict.update(attrs)
+            edges_pretty.append(edge_dict)
+
+        # Log pretty edges
+        self.get_logger().info("Edges:\n" + yaml.dump(edges_pretty, sort_keys=False))
+        '''
+        
+    def get_edge_attributes(self, u, v):
+        """
+        Get the full edge attributes for the edge (u,v).
+        If (u,v) is not in self.edges but (v,u) exists, return that instead.
+        Returns None if neither exists.
+        """
+        if (u, v) in self.edges:
+            return self.edges[(u, v)]
+        elif (v, u) in self.edges:
+            return self.edges[(v, u)]
+        else:
+            return None
 
     def apply_node_and_edge_params(self, from_node, to_node):
         """
@@ -212,7 +273,7 @@ class GraphNavController(Node):
             to_props = self.nodes[to_node]
 
             # 1) Apply node+edge params for this segment
-            self.apply_node_and_edge_params(from_node, to_node)
+            #self.apply_node_and_edge_params(from_node, to_node)
 
             # 2) Optional pause before starting (node-based)
             #pause_before = to_props.get('pause_before', 0.0) or to_props.get('pause_duration', 0.0)
@@ -279,8 +340,6 @@ class GraphNavController(Node):
         if self._prompt_started:
             return
         self._prompt_started = True
-        # run prompt in a separate thread to avoid blocking timers / spins? Using input() will block,
-        # but rclpy.spin still runs in the main thread. If you want non-blocking UI, change to a ROS service.
         self.timer = self.create_timer(0.1, self.prompt_user, callback_group=None)
 
     def prompt_user(self):
@@ -329,7 +388,7 @@ class GraphNavController(Node):
             try:
                 path = nx.astar_path(
                             self.G, start_node, goal_node,
-                            heuristic=lambda u, v: euclidean_distance(self.nodes[u]['x'], self.nodes[u]['y'], self.nodes[v]['x'], self.nodes[v]['y']),
+                            #heuristic=lambda u, v: euclidean_distance(self.nodes[u]['x'], self.nodes[u]['y'], self.nodes[v]['x'], self.nodes[v]['y']),
                             weight='weight'
                         )
             except nx.NetworkXNoPath:
