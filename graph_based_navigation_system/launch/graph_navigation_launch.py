@@ -35,7 +35,7 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
-
+_GRAPH_NAME = 'test_TER_1'  # Default graph name, can be overridden
 
 
 def generate_launch_description():
@@ -58,27 +58,29 @@ def generate_launch_description():
         """Resolve map path relative to mir_navigation/maps or as absolute."""
         map_value = context.launch_configurations.get('map', '')
 
-        default_map_path = os.path.join(mir_graph_nav_dir, 'maps', 'test_TER_1_with_nodes_edges.yaml')
+        GRAPH_NAME = f'{_GRAPH_NAME}_with_nodes_edges.yaml'
+
+        default_map_path = os.path.join(mir_graph_nav_dir, 'maps', GRAPH_NAME)
         candidate_rel_path = os.path.join(mir_graph_nav_dir, 'maps', map_value)
 
         if map_value == '':
             return [
-                LogInfo(msg='[GRAPH NAV] No map specified. Falling back to default map.'),
+                LogInfo(msg='[GRAPH NAVIGATION] No map specified. Falling back to default map.'),
                 SetLaunchConfiguration('map_file', default_map_path)
             ]
         elif os.path.isfile(candidate_rel_path):
             return [
-                LogInfo(msg=f'[GRAPH NAV] Using map (relative): {candidate_rel_path}'),
+                LogInfo(msg=f'[GRAPH NAVIGATION] Using map (relative): {candidate_rel_path}'),
                 SetLaunchConfiguration('map_file', candidate_rel_path)
             ]
         elif os.path.isfile(map_value):
             return [
-                LogInfo(msg=f'[GRAPH NAV] Using map (absolute): {map_value}'),
+                LogInfo(msg=f'[GRAPH NAVIGATION] Using map (absolute): {map_value}'),
                 SetLaunchConfiguration('map_file', map_value)
             ]
         else:
             return [
-                LogInfo(msg=f'[GRAPH NAV] Map file "{map_value}" not found. Using fallback default.'),
+                LogInfo(msg=f'[GRAPH NAVIGATION] Map file "{map_value}" not found. Please check the _GRAPH_NAME configuration and file location.'),
                 SetLaunchConfiguration('map_file', default_map_path)
             ]
 

@@ -7,6 +7,9 @@ import networkx as nx
 
 import rclpy
 from rclpy.node import Node
+from nav_msgs.msg import Odometry
+from tf_transformations import euler_from_quaternion
+from geometry_msgs.msg import Quaternion
 from rclpy.time import Time
 
 from geometry_msgs.msg import PoseStamped
@@ -27,6 +30,15 @@ _GRAPH_NAME = 'test_TER_1'  # Default graph name, can be overridden
 
 def euclidean_distance(x1, y1, x2, y2):
     return math.hypot(x1 - x2, y1 - y2)
+
+def yaw_to_quaternion(yaw: float) -> Quaternion:
+    """Convert a yaw angle (in radians) into a Quaternion message."""
+    q = Quaternion()
+    q.w = math.cos(yaw / 2.0)
+    q.x = 0.0
+    q.y = 0.0
+    q.z = math.sin(yaw / 2.0)
+    return q
 
 class GraphNavController(Node):
     def __init__(self,):
@@ -54,6 +66,16 @@ class GraphNavController(Node):
 
         self.get_logger().info('GraphNavController initialized and ready.')
 
+        # subscriber
+        self.pose_received = False
+        self.mir_pose = None
+        self.robot_position_sub = self.create_subscription(
+            Odometry,
+            '/odom',
+            self.odometry_callback,
+            10
+        )
+
         # small delay to let TF and nav2 come up
         self.get_logger().info('Waiting for navigate_to_pose action server...')
         if not self.nav_client.wait_for_server(timeout_sec=10.0):
@@ -61,8 +83,7 @@ class GraphNavController(Node):
 
         # start the interactive prompt after short delay to ensure node finishes init
         # use a timer so rclpy spin can run concurrently
-        self.create_timer(1.0, self._start_prompt_once)
-        self._prompt_started = False
+        self.create_timer(0.1, self.prompt_user)
 
     # ----------------------
     # File & Graph helpers
@@ -149,10 +170,10 @@ class GraphNavController(Node):
         self.get_logger().info(
             f'Graph with {len(self.nodes)} nodes and {self.DG.number_of_edges() // 2} edges.'
         )
-
-         # Log detailed nodes
-        self.get_logger().info("Nodes:\n" + yaml.dump(self.nodes, sort_keys=False))
         '''
+        # Log detailed nodes
+        self.get_logger().info("Nodes:\n" + yaml.dump(self.nodes, sort_keys=False))
+        
         # Format edges for logging
         edges_pretty = []
         for (frm, to), attrs in self.edges.items():
@@ -163,101 +184,111 @@ class GraphNavController(Node):
         # Log pretty edges
         self.get_logger().info("Edges:\n" + yaml.dump(edges_pretty, sort_keys=False))
         '''
+
+    def odometry_callback(self, msg):
+        if self.pose_received:
+            return
         
-    def get_edge_attributes(self, u, v):
-        """
-        Get the full edge attributes for the edge (u,v).
-        If (u,v) is not in self.edges but (v,u) exists, return that instead.
-        Returns None if neither exists.
-        """
-        if (u, v) in self.edges:
-            return self.edges[(u, v)]
-        elif (v, u) in self.edges:
-            return self.edges[(v, u)]
-        else:
-            return None
+        self.pose_received = True
+        
+        # Extract position and orientation
+        position = msg.pose.pose.position
+        x = position.x
+        y = position.y
 
-    def apply_node_and_edge_params(self, from_node, to_node):
-        """
-        Apply navigation parameters for a specific segment (edge) from `from_node` to `to_node`.
-        Combines node tolerances and edge-specific velocity/planner/controller parameters.
-        """
-        if not self.G.has_edge(from_node, to_node):
-            self.get_logger().warn(f"No edge from {from_node} to {to_node}")
-            return False
+        orientation = msg.pose.pose.orientation
+        quat = [orientation.x, orientation.y, orientation.z, orientation.w]
+        roll, pitch, yaw = euler_from_quaternion(quat)
 
-        edge_data = self.G.edges[from_node, to_node].get('navigation_config', {})
-        from_node_data = self.G.nodes[from_node].get('navigation_config', {})
-        to_node_data = self.G.nodes[to_node].get('navigation_config', {})
+        self.mir_pose = (x, y, yaw)
+        self.get_logger().info(f'Robot Pose: x={x:.2f}, y={y:.2f}, yaw={yaw:.2f}')
 
-        # Combine node tolerances (take min or max as needed)
-        combined_tolerances = {
-            'xy_tolerance': min(from_node_data.get('xy_tolerance', 0.25),
-                                to_node_data.get('xy_tolerance', 0.25)),
-            'yaw_tolerance': min(from_node_data.get('yaw_tolerance', 0.05),
-                                to_node_data.get('yaw_tolerance', 0.05)),
-        }
+        # Optional: Destroy subscription to prevent further callbacks
+        self.destroy_subscription(self.robot_position_sub)        
 
-        # Merge edge navigation parameters
-        nav_params = {**edge_data, **combined_tolerances}
-
-        # Apply dynamically to Nav2 nodes
-        nav2_nodes = ['controller_server', 'planner_server', 'bt_navigator']
-        success = True
-        for node_name in nav2_nodes:
-            if not Nav2DynamicReconfig.set_multiple(node_name, nav_params):
-                success = False
-
-        # Log applied parameters
-        self.get_logger().info(f"Applied parameters for segment {from_node} -> {to_node}: {nav_params}")
-        return success
-
-
-    # ----------------------
-    # TF helpers
-    # ----------------------
-    def get_robot_position_xy(self, timeout_sec: float = 1.0):
-        """Return (x, y) of base_link in map frame or (None, None) on failure."""
-        try:
-            now = self.get_clock().now()
-            # lookup_transform will accept rclpy Time
-            t = self.tf_buffer.lookup_transform('map', 'base_link', Time(seconds=0))
-            x = t.transform.translation.x
-            y = t.transform.translation.y
-            return x, y
-        except Exception as e:
-            self.get_logger().warn(f'Failed to get robot position via TF: {e}')
-            return None, None
-
-    def get_closest_node(self, current_x, current_y):
+    def get_closest_node(self):
         best = None
         best_dist = float('inf')
         for nid, props in self.nodes.items():
-            dx = current_x - props['x']
-            dy = current_y - props['y']
+            dx = self.mir_pose[0] - props['x']
+            dy = self.mir_pose[1] - props['y']
             d = math.hypot(dx, dy)
             if d < best_dist:
                 best = nid
                 best_dist = d
         return best
+    
+    def send_goal(self, x, y, yaw):
+        goal_msg = NavigateToPose.Goal()
 
-    # ----------------------
-    # Actions / hooks
-    # ----------------------
-    def run_node_actions(self, node_id: int):
-        """Execute actions listed in node metadata. Extend this to call services, launch other nodes, etc."""
-        props = self.nodes.get(node_id, {})
-        actions = props.get('actions', [])
-        if not actions:
+        goal_msg.pose.header.frame_id = 'map'
+        goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
+        goal_msg.pose.pose.position.x = x
+        goal_msg.pose.pose.position.y = y
+        goal_msg.pose.pose.position.z = 0.0
+
+        goal_msg.pose.pose.orientation = yaw_to_quaternion(yaw)
+
+        self.get_logger().info(f'Sending goal: ({x:.2f}, {y:.2f}, yaw={yaw:.2f} rad)')
+        send_goal_future = self.nav_client.send_goal_async(
+            goal_msg,
+            feedback_callback=self.feedback_callback
+        )
+        send_goal_future.add_done_callback(self.goal_response_callback)
+
+    def goal_response_callback(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().warn('Goal was rejected!')
             return
 
-        for action in actions:
-            # Simple built-in action examples:
-            if action == 'pause':
-                self.get_logger().info(f'Action pause at node {node_id} (no duration specified).')
-            else:
-                # extend here to support actions like 'scan_area', 'take_picture', call services, etc.
-                self.get_logger().info(f'Action "{action}" requested at node {node_id} (no handler implemented).')
+        self.get_logger().info('Goal accepted, waiting for result...')
+        result_future = goal_handle.get_result_async()
+        result_future.add_done_callback(self.result_callback)
+
+    def feedback_callback(self, feedback_msg):
+        feedback = feedback_msg.feedback
+        self.get_logger().info(f'Feedback: distance remaining {feedback.distance_remaining:.2f} m')
+
+    def result_callback(self, future):
+        result = future.result().result
+        if result.error_code == 0:
+            self.get_logger().info('Goal reached successfully! ✅')
+        else:
+            self.get_logger().error(f'Failed with error code: {result.error_code}')
+
+    def get_node_data(self, node_id: int):
+        """
+        Return the stored data for a given node ID from self.nodes.
+        Raises KeyError if the node does not exist.
+        """
+        if node_id not in self.nodes:
+            self.get_logger().warn(f"Node {node_id} not found in graph.")
+            return None
+        
+        node_data = self.nodes[node_id]
+        x = node_data['x']
+        y = node_data['y']
+        yaw = node_data['yaw']
+        self.get_logger().info(f"Node {node_id} -> x={x}, y={y}, yaw={yaw}")
+        return x, y, yaw, node_data
+    
+    def get_edge_data(self, node_a: int, node_b: int):
+        """
+        Return the edge attributes between node_a and node_b.
+        Looks in both directions (a->b and b->a).
+        Returns None if no edge exists.
+        """
+        # Try forward direction
+        if (node_a, node_b) in self.edges:
+            return self.edges[(node_a, node_b)]
+        
+        # Try reverse direction
+        if (node_b, node_a) in self.edges:
+            return self.edges[(node_b, node_a)]
+        
+        self.get_logger().warn(f"No edge found between {node_a} and {node_b}")
+        return None
 
     # ----------------------
     # Navigation execution
@@ -270,78 +301,21 @@ class GraphNavController(Node):
         for i in range(len(path) - 1):
             from_node = path[i]
             to_node = path[i + 1]
-            to_props = self.nodes[to_node]
 
-            # 1) Apply node+edge params for this segment
-            #self.apply_node_and_edge_params(from_node, to_node)
-
-            # 2) Optional pause before starting (node-based)
-            #pause_before = to_props.get('pause_before', 0.0) or to_props.get('pause_duration', 0.0)
-            #if pause_before and pause_before > 0.0:
-            #    self.get_logger().info(f'Pausing {pause_before}s before moving to node {to_node}')
-            #    time.sleep(float(pause_before))
-
-            # 3) Build and send NavigateToPose goal
-            goal = PoseStamped()
-            goal.header.frame_id = 'map'
-            goal.header.stamp = self.get_clock().now().to_msg()
-            goal.pose.position.x = float(to_props['x'])
-            goal.pose.position.y = float(to_props['y'])
-            yaw = float(to_props.get('yaw', 0.0))
-            goal.pose.orientation.z = math.sin(yaw / 2.0)
-            goal.pose.orientation.w = math.cos(yaw / 2.0)
-
-            nav_goal = NavigateToPose.Goal()
-            nav_goal.pose = goal
-
-            self.get_logger().info(f'Navigating to node {to_node}: ({goal.pose.position.x:.2f}, {goal.pose.position.y:.2f}), style={to_props.get("style", "default")}')
-
-            # Ensure server available
-            if not self.nav_client.wait_for_server(timeout_sec=10.0):
-                self.get_logger().error('NavigateToPose action server not available; aborting path.')
+            edge_data = self.get_edge_data(from_node, to_node)
+            if edge_data is None:
+                self.get_logger().error(f'No edge data between {from_node} and {to_node}, cannot proceed.')
                 return
-
-            send_goal_future = self.nav_client.send_goal_async(nav_goal)
-            rclpy.spin_until_future_complete(self, send_goal_future)
-            goal_handle = send_goal_future.result()
-            if not goal_handle.accepted:
-                self.get_logger().error(f'Goal to node {to_node} rejected by server.')
-                return
-
-            # Wait for result
-            result_future = goal_handle.get_result_async()
-            rclpy.spin_until_future_complete(self, result_future)
-            result = result_future.result()
-            if result is None:
-                self.get_logger().error(f'No result returned for goal to node {to_node}.')
-                return
-
-            if getattr(result.result, 'error_code', 1) == 0:
-                self.get_logger().info(f'Reached node {to_node} successfully.')
-                # run any node actions (post-arrival)
-                self.run_node_actions(to_node)
-
-                # optional pause after arrival
-                pause_after = to_props.get('pause_after', 0.0)
-                if pause_after and pause_after > 0.0:
-                    self.get_logger().info(f'Pausing {pause_after}s after arrival at node {to_node}')
-                    time.sleep(float(pause_after))
-            else:
-                self.get_logger().warn(f'Failed to reach node {to_node}. Error code: {result.result.error_code}')
-                # decide: break or continue. Here we abort the path.
-                return
+            
+            goal_x, goal_y, goal_yaw, to_node_data = self.get_node_data(to_node) 
+            ##### MISSING THE DYNAMIC RECONFIGURATION NAV2 STUFF HERE #####     
+            self.send_goal(goal_x, goal_y, goal_yaw)
 
         self.get_logger().info(f'Completed path to node {path[-1]}.')
 
     # ----------------------
     # Interactive prompt
     # ----------------------
-    def _start_prompt_once(self):
-        if self._prompt_started:
-            return
-        self._prompt_started = True
-        self.timer = self.create_timer(0.1, self.prompt_user, callback_group=None)
-
     def prompt_user(self):
         # single-run interactive loop
         try:
@@ -355,16 +329,42 @@ class GraphNavController(Node):
         except Exception as e:
             self.get_logger().warn(f"Timer cleanup failed: {e}")
 
-        # ask TF for position
-        x, y = self.get_robot_position_xy() 
-        if x is None:
+        if self.mir_pose is None:
             self.get_logger().error('Could not obtain robot position. Ensure TF from map->base_link is published.')
             return
 
-        start_node = self.get_closest_node(x, y)
-        self.get_logger().info(f'Robot closest node: {start_node}')
+        self.get_logger().info(f'Robot closest node: {self.get_closest_node()}')
+        
+        start_node = None
+        while start_node is None:
+            try:
+                user = input('Enter start node ID (or -1 to exit): ').strip()
+            except (EOFError, KeyboardInterrupt):
+                self.get_logger().info('Input ended by user, exiting prompt.')
+                return
+
+            try:
+                start_node = int(user)
+            except ValueError:
+                print('Invalid input, enter an integer node id.')
+                continue
+
+            if start_node == -1:
+                self.get_logger().info('Exiting interactive navigation.')
+                return
+
+            if start_node not in self.nodes:
+                print(f'Node {start_node} not present in graph. Available nodes: {list(self.nodes.keys())}')
+                start_node = None
+                continue
+                             
+        x, y, yaw, node_data = self.get_node_data(start_node)
+        self.send_goal(x, y, yaw)     
 
         while True:
+            # Get list of node IDs from the graph
+            node_ids = list(self.DG.nodes())
+            print(f"Available nodes: {node_ids}")
             try:
                 user = input('Enter goal node ID (or -1 to exit): ').strip()
             except (EOFError, KeyboardInterrupt):
@@ -381,23 +381,22 @@ class GraphNavController(Node):
                 self.get_logger().info('Exiting interactive navigation.')
                 return
 
-            if goal_node not in self.nodes:
-                print(f'Node {goal_node} not present in graph. Available nodes: {list(self.nodes.keys())}')
+            if goal_node not in node_ids:
+                print(f'Node {goal_node} not present in graph. Available nodes: {node_ids}')
                 continue
 
             try:
-                path = nx.astar_path(
-                            self.G, start_node, goal_node,
-                            #heuristic=lambda u, v: euclidean_distance(self.nodes[u]['x'], self.nodes[u]['y'], self.nodes[v]['x'], self.nodes[v]['y']),
-                            weight='weight'
-                        )
+                path = nx.shortest_path(self.DG, source=start_node, target=goal_node, weight='weight', method='dijkstra') # Supported options: ‘dijkstra’, ‘bellman-ford’
+                total_cost = nx.shortest_path_length(self.DG, source=start_node, target=goal_node, weight='weight')
+                self.get_logger().info(f"Shortest path from {start_node} to {goal_node}: {path} (cost: {total_cost})")
+                self.execute_path(path)
+                start_node = goal_node
             except nx.NetworkXNoPath:
-                print(f'No path between {start_node} and {goal_node}.')
+                self.get_logger().info(f"No path found from {start_node} to {goal_node}")
+                path = []
+                total_cost = None
                 continue
 
-            print(f'Planned path: {path}')
-            self.execute_path(path)
-            start_node = goal_node
 
     # ----------------------
     # Shutdown helper
