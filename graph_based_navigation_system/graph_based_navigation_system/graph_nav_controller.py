@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 import os
 import math
-import time
 import yaml
 import networkx as nx
 
 import rclpy
 from rclpy.node import Node
-from nav_msgs.msg import Odometry
+
 from tf_transformations import euler_from_quaternion
 from geometry_msgs.msg import Quaternion
-from rclpy.time import Time
 
-from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import NavigateToPose
 from rclpy.action import ActionClient
 
@@ -24,7 +21,7 @@ from ament_index_python.packages import get_package_share_directory
 # - NavigationDefaults: holds defaults for nodes/edges and style profiles
 # - Nav2DynamicReconfig: small wrapper to set params on Nav2 nodes
 from graph_based_navigation_system.navigation_defaults import NavigationDefaults
-from .nav2_dynamic_reconfig import Nav2DynamicReconfig
+from graph_based_navigation_system.nav2_dynamic_reconfig import Nav2DynamicReconfig
 
 _GRAPH_NAME = 'test_TER_1'  # Default graph name, can be overridden
 
@@ -67,22 +64,14 @@ class GraphNavController(Node):
         self.get_logger().info('GraphNavController initialized and ready.')
 
         # subscriber
-        self.pose_received = False
-        self.mir_pose = None
-        self.robot_position_sub = self.create_subscription(
-            Odometry,
-            '/odom',
-            self.odometry_callback,
-            10
-        )
+        self.mir_pose = None  # (x, y, yaw)
+        self.mir_pose = self.update_robot_pose() #### AFTER CRETAING THE SCRIPT WICH DOES IT AUTOMATICALLY, remember to CHANGE this part ####
 
         # small delay to let TF and nav2 come up
         self.get_logger().info('Waiting for navigate_to_pose action server...')
         if not self.nav_client.wait_for_server(timeout_sec=10.0):
             self.get_logger().warn('NavigateToPose server not available yet. Will wait when sending goals.')
 
-        # start the interactive prompt after short delay to ensure node finishes init
-        # use a timer so rclpy spin can run concurrently
         self.create_timer(0.1, self.prompt_user)
 
     # ----------------------
@@ -185,26 +174,28 @@ class GraphNavController(Node):
         self.get_logger().info("Edges:\n" + yaml.dump(edges_pretty, sort_keys=False))
         '''
 
-    def odometry_callback(self, msg):
-        if self.pose_received:
-            return
-        
-        self.pose_received = True
-        
-        # Extract position and orientation
-        position = msg.pose.pose.position
-        x = position.x
-        y = position.y
+    def update_robot_pose(self):
+        try:
+            trans = self.tf_buffer.lookup_transform(
+                'map',         # target frame
+                'base_link',   # source frame
+                rclpy.time.Time(), 
+                timeout=rclpy.duration.Duration(seconds=0.5)
+            )
 
-        orientation = msg.pose.pose.orientation
-        quat = [orientation.x, orientation.y, orientation.z, orientation.w]
-        roll, pitch, yaw = euler_from_quaternion(quat)
+            x = trans.transform.translation.x
+            y = trans.transform.translation.y
+            q = trans.transform.rotation
+            yaw = math.atan2(
+                2.0 * (q.w * q.z + q.x * q.y),
+                1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+            )
 
-        self.mir_pose = (x, y, yaw)
-        self.get_logger().info(f'Robot Pose: x={x:.2f}, y={y:.2f}, yaw={yaw:.2f}')
+            self.mir_pose = (x, y, yaw)
+            self.get_logger().debug(f"Robot Pose in map frame: x={x:.2f}, y={y:.2f}, yaw={yaw:.2f}")
 
-        # Optional: Destroy subscription to prevent further callbacks
-        self.destroy_subscription(self.robot_position_sub)        
+        except Exception as e:
+            self.get_logger().warn(f"TF lookup failed: {e}")       
 
     def get_closest_node(self):
         best = None
@@ -298,37 +289,43 @@ class GraphNavController(Node):
             self.get_logger().info('Path too short; nothing to do.')
             return
 
+        nav2_reconfig = Nav2DynamicReconfig() 
+
         for i in range(len(path) - 1):
             from_node = path[i]
             to_node = path[i + 1]
 
+            # --- Get edge parameters ---
             edge_data = self.get_edge_data(from_node, to_node)
             if edge_data is None:
-                self.get_logger().error(f'No edge data between {from_node} and {to_node}, cannot proceed.')
+                self.get_logger().error(f"No edge data between {from_node} and {to_node}, cannot proceed.")
                 return
-            
-            goal_x, goal_y, goal_yaw, to_node_data = self.get_node_data(to_node) 
-            ##### MISSING THE DYNAMIC RECONFIGURATION NAV2 STUFF HERE #####     
+
+            # Filter edge params (exclude weight/one_way)
+            edge_nav_params = {k: v for k, v in edge_data.items() if k not in ['weight', 'one_way']}
+
+            # --- Get node parameters ---
+            goal_x, goal_y, goal_yaw, node_data = self.get_node_data(to_node)
+            node_nav_params = {
+                'xy_goal_tolerance': node_data.get('xy_tolerance', 0.1),
+                'yaw_goal_tolerance': node_data.get('yaw_tolerance', 0.05)
+            }
+
+            # Merge edge + node params for controller_server
+            combined_params = {**edge_nav_params, **node_nav_params}
+
+            # Dynamically update Nav2 controller parameters
+            nav2_reconfig.set_multiple('controller_server', combined_params)
+
+            # Send the goal
             self.send_goal(goal_x, goal_y, goal_yaw)
 
-        self.get_logger().info(f'Completed path to node {path[-1]}.')
+        self.get_logger().info(f"Completed path to node {path[-1]}.")
 
     # ----------------------
     # Interactive prompt
     # ----------------------
     def prompt_user(self):
-        # single-run interactive loop
-        try:
-            # if we stored the timer, cancel it here
-            if hasattr(self, "_timer") and self._timer is not None:
-                try:
-                    self.destroy_timer(self._timer)
-                except Exception as e:
-                    self.get_logger().warn(f"Failed to cancel timer: {e}")
-                self._timer = None
-        except Exception as e:
-            self.get_logger().warn(f"Timer cleanup failed: {e}")
-
         if self.mir_pose is None:
             self.get_logger().error('Could not obtain robot position. Ensure TF from map->base_link is published.')
             return
