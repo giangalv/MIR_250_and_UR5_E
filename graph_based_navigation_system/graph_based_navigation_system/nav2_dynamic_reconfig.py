@@ -3,36 +3,51 @@ from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rcl_interfaces.srv import SetParameters
 
+
 class Nav2DynamicReconfig(Node):
+    """Utility node for dynamically updating Nav2 parameters."""
+
     def __init__(self, node_name="nav2_dynamic_reconfig"):
         super().__init__(node_name)
+        self.__clients = []
 
     def _make_param(self, name, value):
         """Create a Parameter message with correct type."""
         if isinstance(value, bool):
-            ptype = Parameter.Type.BOOL
+            param = Parameter(name=name, type_=Parameter.Type.BOOL, value=value)
         elif isinstance(value, int):
-            ptype = Parameter.Type.INTEGER
+            param = Parameter(name=name, type_=Parameter.Type.INTEGER, value=value)
         elif isinstance(value, float):
-            ptype = Parameter.Type.DOUBLE
+            param = Parameter(name=name, type_=Parameter.Type.DOUBLE, value=value)
         elif isinstance(value, str):
-            ptype = Parameter.Type.STRING
+            param = Parameter(name=name, type_=Parameter.Type.STRING, value=value)
         elif isinstance(value, list):
             if all(isinstance(v, float) for v in value):
-                ptype = Parameter.Type.DOUBLE_ARRAY
+                param = Parameter(name=name, type_=Parameter.Type.DOUBLE_ARRAY, value=value)
             elif all(isinstance(v, int) for v in value):
-                ptype = Parameter.Type.INTEGER_ARRAY
+                param = Parameter(name=name, type_=Parameter.Type.INTEGER_ARRAY, value=value)
             else:
-                ptype = Parameter.Type.STRING_ARRAY
+                param = Parameter(name=name, type_=Parameter.Type.STRING_ARRAY, value=value)
         else:
             raise TypeError(f"Unsupported parameter type for {name}: {type(value)}")
-        
-        return Parameter(name=name, value=value).to_parameter_msg()
 
-    def set_param(self, nav2_node, param_name, value):
-        client = self.create_client(SetParameters, f'/{nav2_node}/set_parameters')
-        if not client.wait_for_service(timeout_sec=2.0):
-            self.get_logger().error(f"Service not available for {nav2_node}")
+        return param.to_parameter_msg()
+
+    def _get_client(self, nav2_node: str):
+        """Return cached service client for a Nav2 node."""
+        if nav2_node not in self._clients:
+            service_name = f'/{nav2_node}/set_parameters'
+            client = self.create_client(SetParameters, service_name)
+            if not client.wait_for_service(timeout_sec=2.0):
+                self.get_logger().error(f"Service not available: {service_name}")
+                return None
+            self._clients[nav2_node] = client
+        return self._clients[nav2_node]
+
+    def set_param(self, nav2_node: str, param_name: str, value):
+        """Set a single parameter on a Nav2 node."""
+        client = self._get_client(nav2_node)
+        if client is None:
             return False
 
         request = SetParameters.Request()
@@ -53,16 +68,15 @@ class Nav2DynamicReconfig(Node):
             self.get_logger().warn(f"Failed to set {param_name} on {nav2_node}")
             return False
 
-    def set_multiple(self, nav2_node, param_dict):
-        client = self.create_client(SetParameters, f'/{nav2_node}/set_parameters')
-        if not client.wait_for_service(timeout_sec=2.0):
-            self.get_logger().error(f"Service not available for {nav2_node}")
+    def set_multiple(self, nav2_node: str, param_dict: dict):
+        """Set multiple parameters on a Nav2 node."""
+        client = self._get_client(nav2_node)
+        if client is None:
             return False
 
         request = SetParameters.Request()
         try:
-            for k, v in param_dict.items():
-                request.parameters.append(self._make_param(k, v))
+            request.parameters = [self._make_param(k, v) for k, v in param_dict.items()]
         except TypeError as e:
             self.get_logger().error(str(e))
             return False
@@ -72,8 +86,12 @@ class Nav2DynamicReconfig(Node):
 
         result = future.result()
         if result and all(r.successful for r in result.results):
-            self.get_logger().info(f"Updated {len(param_dict)} params on {nav2_node}")
+            self.get_logger().info(f"{nav2_node}: updated {len(param_dict)} params")
             return True
         else:
             self.get_logger().warn(f"Failed multiple param set on {nav2_node}")
+            if result:
+                for r, (k, v) in zip(result.results, param_dict.items()):
+                    if not r.successful:
+                        self.get_logger().warn(f"  ✗ {k} = {v} ({r.reason})")
             return False

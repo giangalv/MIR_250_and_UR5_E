@@ -106,6 +106,7 @@ def generate_launch_description():
         namespace=namespace,
         output='screen',
     )
+
     controller_node = Node(
         package='mir_restapi',
         executable='mir_control_node',
@@ -113,6 +114,15 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}],
         namespace=namespace,
         prefix='xterm -e',
+        output='screen',
+    )
+
+    mir_initial_position_node = Node(
+        package='mir_manual_navigation',
+        executable='initial_position_mir',
+        name='initial_position_mir',
+        parameters=[{'use_sim_time': use_sim_time}],
+        namespace=namespace,
         output='screen',
     )
 
@@ -125,4 +135,5 @@ def generate_launch_description():
         twist_joy_node,
         mir_restapi_server_node,
         controller_node,
+        mir_initial_position_node,
     ])

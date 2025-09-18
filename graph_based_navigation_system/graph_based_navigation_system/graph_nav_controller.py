@@ -3,27 +3,26 @@ import os
 import math
 import yaml
 import networkx as nx
-
+import sys
 import rclpy
+import time
+
+from geometry_msgs.msg import Pose2D
 from rclpy.node import Node
-
-from tf_transformations import euler_from_quaternion
 from geometry_msgs.msg import Quaternion
-
-from nav2_msgs.action import NavigateToPose
-from rclpy.action import ActionClient
-
-from tf2_ros import Buffer, TransformListener
-
+from geometry_msgs.msg import PoseStamped
+from action_msgs.msg import GoalStatus
 from ament_index_python.packages import get_package_share_directory
+
 
 # NOTE: This import assumes you have these helper classes available as in your repo.
 # - NavigationDefaults: holds defaults for nodes/edges and style profiles
 # - Nav2DynamicReconfig: small wrapper to set params on Nav2 nodes
+from graph_based_navigation_system.navigation_helper import BasicNavigator
 from graph_based_navigation_system.navigation_defaults import NavigationDefaults
 from graph_based_navigation_system.nav2_dynamic_reconfig import Nav2DynamicReconfig
 
-_GRAPH_NAME = 'test_TER_1'  # Default graph name, can be overridden
+_GRAPH_NAME = 'test_TER_1'  # Default graph name, to adjust as needed
 
 def euclidean_distance(x1, y1, x2, y2):
     return math.hypot(x1 - x2, y1 - y2)
@@ -44,15 +43,14 @@ class GraphNavController(Node):
         self.GRAPH_NAME = f'{_GRAPH_NAME}_graph.yaml'
         # From navigation_defaults.py load defaults navigation parameters
         self.defaults = NavigationDefaults()
+        # Nav2 dynamic reconfig utility
+        self.nav2_reconfig = Nav2DynamicReconfig()
 
-        # TF
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
+        # Basic navigator helper
+        self.navigator = BasicNavigator()
+        self.navigator.waitUntilNav2Active()
 
-        # action client
-        self.nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
-
-        # internal state
+        # graph structures
         self.nodes = {}
         self.edges = {}
         self.DG = nx.DiGraph()
@@ -63,16 +61,12 @@ class GraphNavController(Node):
 
         self.get_logger().info('GraphNavController initialized and ready.')
 
-        # subscriber
-        self.mir_pose = None  # (x, y, yaw)
-        self.mir_pose = self.update_robot_pose() #### AFTER CRETAING THE SCRIPT WICH DOES IT AUTOMATICALLY, remember to CHANGE this part ####
+        # File to save/load the last position
+        self.file_path = os.path.join(os.path.expanduser("~"), ".ros", "mir_position.txt")
+        self.mir_pose = self.load_position()
 
-        # small delay to let TF and nav2 come up
-        self.get_logger().info('Waiting for navigate_to_pose action server...')
-        if not self.nav_client.wait_for_server(timeout_sec=10.0):
-            self.get_logger().warn('NavigateToPose server not available yet. Will wait when sending goals.')
-
-        self.create_timer(0.1, self.prompt_user)
+        # Timer to handle prompt
+        self.create_timer(0.5, self.prompt_user)
 
     # ----------------------
     # File & Graph helpers
@@ -160,6 +154,7 @@ class GraphNavController(Node):
             f'Graph with {len(self.nodes)} nodes and {self.DG.number_of_edges() // 2} edges.'
         )
         '''
+        ### PRINT GRAPH FOR DEBUGGING ###
         # Log detailed nodes
         self.get_logger().info("Nodes:\n" + yaml.dump(self.nodes, sort_keys=False))
         
@@ -173,123 +168,89 @@ class GraphNavController(Node):
         # Log pretty edges
         self.get_logger().info("Edges:\n" + yaml.dump(edges_pretty, sort_keys=False))
         '''
-
-    def update_robot_pose(self):
-        try:
-            trans = self.tf_buffer.lookup_transform(
-                'map',         # target frame
-                'base_link',   # source frame
-                rclpy.time.Time(), 
-                timeout=rclpy.duration.Duration(seconds=0.5)
-            )
-
-            x = trans.transform.translation.x
-            y = trans.transform.translation.y
-            q = trans.transform.rotation
-            yaw = math.atan2(
-                2.0 * (q.w * q.z + q.x * q.y),
-                1.0 - 2.0 * (q.y * q.y + q.z * q.z)
-            )
-
-            self.mir_pose = (x, y, yaw)
-            self.get_logger().debug(f"Robot Pose in map frame: x={x:.2f}, y={y:.2f}, yaw={yaw:.2f}")
-
-        except Exception as e:
-            self.get_logger().warn(f"TF lookup failed: {e}")       
+    
+    def load_position(self):
+        """Load position from file once."""
+        if os.path.exists(self.file_path):
+            try:
+                with open(self.file_path, "r") as f:
+                    line = f.readline().strip()
+                    if line:
+                        x, y, theta = map(float, line.split())
+                        self.get_logger().info(f"Mir position loaded: x={x}, y={y}, theta={theta}")
+                        return Pose2D(x=x, y=y, theta=theta)
+            except Exception as e:
+                self.get_logger().warn(f"Failed to load position: {e}")
+        else:
+            self.get_logger().info("No previous position found, starting from (0,0,0)")
+            return Pose2D(x=0.0, y=0.0, theta=0.0)
+        return None 
 
     def get_closest_node(self):
         best = None
         best_dist = float('inf')
+
+        if self.mir_pose is None:
+            self.get_logger().warn("Robot pose not available yet.")
+            return None
+
         for nid, props in self.nodes.items():
-            dx = self.mir_pose[0] - props['x']
-            dy = self.mir_pose[1] - props['y']
+            dx = self.mir_pose.x - props['x']
+            dy = self.mir_pose.y - props['y']
             d = math.hypot(dx, dy)
             if d < best_dist:
                 best = nid
                 best_dist = d
+
         return best
     
-    def send_goal(self, x, y, yaw):
-        goal_msg = NavigateToPose.Goal()
-
-        goal_msg.pose.header.frame_id = 'map'
-        goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
-        goal_msg.pose.pose.position.x = x
-        goal_msg.pose.pose.position.y = y
-        goal_msg.pose.pose.position.z = 0.0
-
-        goal_msg.pose.pose.orientation = yaw_to_quaternion(yaw)
-
-        self.get_logger().info(f'Sending goal: ({x:.2f}, {y:.2f}, yaw={yaw:.2f} rad)')
-        send_goal_future = self.nav_client.send_goal_async(
-            goal_msg,
-            feedback_callback=self.feedback_callback
-        )
-        send_goal_future.add_done_callback(self.goal_response_callback)
-
-    def goal_response_callback(self, future):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().warn('Goal was rejected!')
-            return
-
-        self.get_logger().info('Goal accepted, waiting for result...')
-        result_future = goal_handle.get_result_async()
-        result_future.add_done_callback(self.result_callback)
-
-    def feedback_callback(self, feedback_msg):
-        feedback = feedback_msg.feedback
-        self.get_logger().info(f'Feedback: distance remaining {feedback.distance_remaining:.2f} m')
-
-    def result_callback(self, future):
-        result = future.result().result
-        if result.error_code == 0:
-            self.get_logger().info('Goal reached successfully! ✅')
-        else:
-            self.get_logger().error(f'Failed with error code: {result.error_code}')
-
     def get_node_data(self, node_id: int):
         """
         Return the stored data for a given node ID from self.nodes.
-        Raises KeyError if the node does not exist.
+        Ensures a navigation_config dict is always present.
         """
         if node_id not in self.nodes:
             self.get_logger().warn(f"Node {node_id} not found in graph.")
             return None
-        
-        node_data = self.nodes[node_id]
+
+        node_data = dict(self.nodes[node_id])  # make a copy
+        node_data.setdefault("navigation_config", {})  # ensure key exists
+
         x = node_data['x']
         y = node_data['y']
         yaw = node_data['yaw']
-        self.get_logger().info(f"Node {node_id} -> x={x}, y={y}, yaw={yaw}")
+        #self.get_logger().info(f"Node {node_id} -> x={x}, y={y}, yaw={yaw}")
         return x, y, yaw, node_data
-    
+
     def get_edge_data(self, node_a: int, node_b: int):
         """
         Return the edge attributes between node_a and node_b.
         Looks in both directions (a->b and b->a).
-        Returns None if no edge exists.
+        Ensures a navigation_config dict is always present.
         """
+        edge = None
+
         # Try forward direction
         if (node_a, node_b) in self.edges:
-            return self.edges[(node_a, node_b)]
-        
+            edge = dict(self.edges[(node_a, node_b)])
         # Try reverse direction
-        if (node_b, node_a) in self.edges:
-            return self.edges[(node_b, node_a)]
-        
-        self.get_logger().warn(f"No edge found between {node_a} and {node_b}")
-        return None
+        elif (node_b, node_a) in self.edges:
+            edge = dict(self.edges[(node_b, node_a)])
+
+        if edge is None:
+            self.get_logger().warn(f"No edge found between {node_a} and {node_b}")
+            return None
+
+        edge.setdefault("navigation_config", {})  # ensure key exists
+        return edge
 
     # ----------------------
     # Navigation execution
     # ----------------------
     def execute_path(self, path):
         if len(path) < 2:
-            self.get_logger().info('Path too short; nothing to do.')
+            self.get_logger().info('You are already at the goal node or path is too short.')
             return
-
-        nav2_reconfig = Nav2DynamicReconfig() 
 
         for i in range(len(path) - 1):
             from_node = path[i]
@@ -301,33 +262,62 @@ class GraphNavController(Node):
                 self.get_logger().error(f"No edge data between {from_node} and {to_node}, cannot proceed.")
                 return
 
-            # Filter edge params (exclude weight/one_way)
-            edge_nav_params = {k: v for k, v in edge_data.items() if k not in ['weight', 'one_way']}
-
             # --- Get node parameters ---
             goal_x, goal_y, goal_yaw, node_data = self.get_node_data(to_node)
-            node_nav_params = {
-                'xy_goal_tolerance': node_data.get('xy_tolerance', 0.1),
-                'yaw_goal_tolerance': node_data.get('yaw_tolerance', 0.05)
-            }
 
-            # Merge edge + node params for controller_server
-            combined_params = {**edge_nav_params, **node_nav_params}
+            self.get_logger().info(f"➡️ Sending robot to node {to_node}: ({goal_x:.2f}, {goal_y:.2f}, yaw={goal_yaw:.2f})")
 
-            # Dynamically update Nav2 controller parameters
-            nav2_reconfig.set_multiple('controller_server', combined_params)
+            # --- Execute navigation ---
+            success = self.go_to_pose_and_wait(goal_x, goal_y, goal_yaw)
+            if not success:
+                self.get_logger().error(f"❌ Failed to reach node {to_node}, aborting path.")
+                return
 
-            # Send the goal
-            self.send_goal(goal_x, goal_y, goal_yaw)
+            self.get_logger().info(f"✅ Arrived at node {to_node}, waiting before next...")
+            time.sleep(5)  # configurable pause
 
-        self.get_logger().info(f"Completed path to node {path[-1]}.")
+        self.get_logger().info(f"🎉 Completed path to node {path[-1]}.")
 
+    # ----------------------
+    # Nav2 execution wrapper
+    # ----------------------
+    def go_to_pose_and_wait(self, x, y, yaw):
+        goal = PoseStamped()
+        goal.header.frame_id = 'map'
+        goal.header.stamp = self.get_clock().now().to_msg()
+        goal.pose.position.x = x
+        goal.pose.position.y = y
+        goal.pose.orientation = yaw_to_quaternion(yaw)
+
+        self.get_logger().info(f"📍 Sending goal: ({x:.2f}, {y:.2f}, yaw={yaw:.2f})")
+        self.navigator.goToPose(goal)
+
+        while not self.navigator.isNavComplete():
+            feedback = self.navigator.getFeedback()
+            if feedback:
+                self.get_logger().info(
+                    f"⏳ Distance remaining: {feedback.distance_remaining:.2f} m, "
+                )
+            rclpy.spin_once(self.navigator, timeout_sec=0.1)
+
+        result = self.navigator.getResult()
+        if result == GoalStatus.STATUS_SUCCEEDED:
+            self.get_logger().info("🎯 Goal reached (distance ≤ tolerance)")
+            return True
+        elif result == GoalStatus.STATUS_CANCELED:
+            self.get_logger().warn("⚠️ Goal canceled")
+        elif result == GoalStatus.STATUS_ABORTED:
+            self.get_logger().error("❌ Goal aborted")
+        else:
+            self.get_logger().warn(f"⚠️ Goal finished with unknown status {result}")
+        return False
+    
     # ----------------------
     # Interactive prompt
     # ----------------------
     def prompt_user(self):
         if self.mir_pose is None:
-            self.get_logger().error('Could not obtain robot position. Ensure TF from map->base_link is published.')
+            self.get_logger().info('Waiting for AMCL pose...')
             return
 
         self.get_logger().info(f'Robot closest node: {self.get_closest_node()}')
@@ -348,15 +338,20 @@ class GraphNavController(Node):
 
             if start_node == -1:
                 self.get_logger().info('Exiting interactive navigation.')
-                return
+                rclpy.shutdown()
+                sys.exit(0)
 
             if start_node not in self.nodes:
                 print(f'Node {start_node} not present in graph. Available nodes: {list(self.nodes.keys())}')
                 start_node = None
                 continue
                              
-        x, y, yaw, node_data = self.get_node_data(start_node)
-        self.send_goal(x, y, yaw)     
+        goal_x, goal_y, goal_yaw, node_data = self.get_node_data(start_node)
+        # --- Execute navigation ---
+        success = self.go_to_pose_and_wait(goal_x, goal_y, goal_yaw)
+        if not success:
+            self.get_logger().error(f"❌ Failed to reach node {start_node}, aborting path.")
+            return 
 
         while True:
             # Get list of node IDs from the graph
@@ -376,7 +371,8 @@ class GraphNavController(Node):
 
             if goal_node == -1:
                 self.get_logger().info('Exiting interactive navigation.')
-                return
+                rclpy.shutdown()
+                sys.exit(0)
 
             if goal_node not in node_ids:
                 print(f'Node {goal_node} not present in graph. Available nodes: {node_ids}')
@@ -393,7 +389,6 @@ class GraphNavController(Node):
                 path = []
                 total_cost = None
                 continue
-
 
     # ----------------------
     # Shutdown helper

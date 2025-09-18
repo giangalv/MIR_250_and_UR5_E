@@ -96,7 +96,6 @@
       <child link="${prefix}imu_frame" />
       <origin xyz="0 0 0" rpy="0 0 0" />
     </joint>
-
     <link name="${prefix}imu_frame" />
 
     <!-- Laser scanners -->
@@ -104,7 +103,7 @@
     <joint name="${prefix}base_link_to_virtual_laser_joint" type="fixed">
       <parent link="${prefix}base_link" />
       <child link="${prefix}virtual_laser_link" />
-      <origin xyz="0.0 0.0 0.2" rpy="0.0 0.0 0" />
+      <origin xyz="0.0 0.0 0.1914" rpy="0.0 0.0 0" />
     </joint>
     <link name="${prefix}virtual_laser_link">
     </link>

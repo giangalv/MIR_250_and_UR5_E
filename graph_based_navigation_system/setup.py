@@ -30,6 +30,7 @@ setup(
             'graph_nav_controller = graph_based_navigation_system.graph_nav_controller:main',
             'nav2_dynamic_reconfig = graph_based_navigation_system.nav2_dynamic_reconfig:main',
             'navigation_defaults = graph_based_navigation_system.navigation_defaults:main',
+            'navigation_helper = graph_based_navigation_system.navigation_helper:main',
         ],
     },
 )

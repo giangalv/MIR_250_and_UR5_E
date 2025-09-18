@@ -70,37 +70,10 @@ def generate_launch_description():
           output='screen'
     )
 
-    tf_static_node = Node(
-        package='mir_driver',
-        executable='tf_static_publisher', # The old one... I have to test the "REPUBLISHER" one
-        name='tf_static_publisher',
-        output='screen',
-        parameters=[{'use_sim_time': use_sim_time}],
-    )    
-
-    tf_node = Node(
-        package='mir_driver',
-        executable='tf_republisher',
-        name='tf_republisher',
-        output='screen',
-        parameters=[{'use_sim_time': use_sim_time}],
-    )
-
-    initial_position_node = Node(
-        package='mir_manual_navigation',
-        executable='initial_position',
-        name='initial_position',
-        output='screen',
-        parameters=[{'use_sim_time': use_sim_time}],
-    )
-
     return LaunchDescription([
         use_sim_time_standard,
         standard_namespace,
         OpaqueFunction(function=create_robot_description),
         robot_state_node,
         joint_state_node,
-        tf_static_node,
-        #tf_node,
-        #initial_position_node
     ])

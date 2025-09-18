@@ -1,34 +1,59 @@
-# This is a configuration example file for setting up a graph-based navigation system.
-nodes:
-  0:
-    x: 0.61                  # X coordinate in meters (required)
-    y: -0.21                 # Y coordinate in meters (required)
-    yaw: 0.0                 # Orientation in radians (required)
-    name: "StartNode"        # Optional descriptive name for the node
-    navigation_config:       # Optional navigation parameters for this node
-      'xy_tolerance': 0.1,      # xy_goal_tolerance: 0.25 #Positional tolerance to goal (meters)
-      'yaw_tolerance': 0.05     # yaw_goal_tolerance: 0.05 #Angular tolerance to goal (radians)
-    #actions: []          # Optional list of actions or tasks associated with this node
-      
-############################################################################# 
+# ==========================================================
+# Graph-based Navigation Configuration Example
+# ==========================================================
+# This file defines:
+#   - Navigation nodes (positions in the map with tolerances)
+#   - Navigation edges (connections between nodes with constraints)
+#   - Optional Nav2 dynamic parameters for each node/edge
+#
+# All parameters are grouped by Nav2 server name:
+#   controller_server -> goal tolerances, velocities, accelerations
+#   local_costmap     -> local inflation & obstacle settings
+#   global_costmap    -> global inflation & obstacle settings
+#
+# Parameters follow Nav2 naming conventions (e.g. FollowPath.*).
+# ==========================================================
 
+nodes:
+  0:                               # Node ID (must be unique)
+    x: 0.61                        # X coordinate in meters
+    y: -0.21                       # Y coordinate in meters
+    yaw: 0.0                       # Orientation in radians
+    name: "StartNode"              # Optional human-readable name
+    navigation_config:             # Node-specific Nav2 configuration
+      controller_server:           # Applies to the Nav2 controller_server
+        'FollowPath.xy_goal_tolerance': 0.10     # Allowed position error at goal (m)
+        'FollowPath.yaw_goal_tolerance': 0.05    # Allowed orientation error at goal (rad)
+    # actions: []                   # (Optional) Actions at this node (pick, place, etc.)
+
+# ----------------------------------------------------------
+# Edges define navigable connections between nodes
+# ----------------------------------------------------------
 edges:
-  - from: 0                   # Source node ID (required)
-    to: 1                     # Destination node ID (required)
-    weight: 1.0               # Optional edge weight (default = 1.0)
-    one_way: false             # Optional edge direction (default = false)
-    description: "Ramp up to node 1 via hallway"  # Optional comment
-    navigation_config:       # Optional navigation parameters for this node
-      'max_vel_x': 0.26,           # Max linear velocity (m/s)
-      'max_vel_theta': 1.0,       # Max angular velocity (rad/s)
-      'acc_lim_x': 2.5,           # Linear acceleration limit (m/s^2)
-      'acc_lim_theta': 3.2,       # Angular acceleration limit (rad/s^2)
-      'planner': "SmacPlanner",   # Nav2 planner plugin name
-      'controller': "DWB",        # Controller plugin name
-      'inflation_radius': 0.5,    # Costmap inflation radius (meters)
-      'cost_scaling_factor': 3.0, # Costmap scaling factor
-      'obstacle_max_range': 3.0,  # Obstacle detection range (meters)
-      'obstacle_min_range': 0.05, # Minimum obstacle detection range (meters)
-      #'max_obstacle_height': 3.0, # Max height of obstacles (meters
-      'raytrace_max_range': 3.5,  # Max range for ray tracing (meters)
-      'raytrace_min_range': 0.05  # Minimum range for ray tracing (meters)
+  - from: 0                        # Source node ID
+    to: 1                          # Destination node ID
+    weight: 1.0                    # Cost/weight for shortest path search (default=1.0)
+    one_way: false                  # If true: edge can only be traveled from -> to
+    description: "Ramp up to node 1 via hallway" # Optional text description
+    navigation_config:             # Edge-specific Nav2 configuration
+      controller_server:           # Controller tuning for this edge
+        'FollowPath.max_vel_x': 0.26        # Max linear velocity (m/s)
+        'FollowPath.max_vel_theta': 1.0     # Max angular velocity (rad/s)
+        'FollowPath.acc_lim_x': 2.5         # Linear acceleration limit (m/s^2)
+        'FollowPath.acc_lim_theta': 3.2     # Angular acceleration limit (rad/s^2)
+
+      local_costmap:               # Local costmap tuning for this edge
+        'local_costmap.local_costmap.inflation_layer.inflation_radius': 0.5   # Obstacle inflation radius (m)
+        'local_costmap.local_costmap.inflation_layer.cost_scaling_factor': 3.0 # Steepness of cost growth
+        'local_costmap.local_costmap.obstacle_layer.obstacle_max_range': 3.0  # Max obstacle sensing distance (m)
+        'local_costmap.local_costmap.obstacle_layer.obstacle_min_range': 0.05 # Min obstacle sensing distance (m)
+        'local_costmap.local_costmap.obstacle_layer.raytrace_max_range': 3.5  # Max raytrace distance (m)
+        'local_costmap.local_costmap.obstacle_layer.raytrace_min_range': 0.05 # Min raytrace distance (m)
+
+      global_costmap:              # Global costmap tuning for this edge
+        'global_costmap.global_costmap.inflation_layer.inflation_radius': 0.5   # Obstacle inflation radius (m)
+        'global_costmap.global_costmap.inflation_layer.cost_scaling_factor': 3.0 # Steepness of cost growth
+        'global_costmap.global_costmap.obstacle_layer.obstacle_max_range': 3.0  # Max obstacle sensing distance (m)
+        'global_costmap.global_costmap.obstacle_layer.obstacle_min_range': 0.05 # Min obstacle sensing distance (m)
+        'global_costmap.global_costmap.obstacle_layer.raytrace_max_range': 3.5  # Max raytrace distance (m)
+        'global_costmap.global_costmap.obstacle_layer.raytrace_min_range': 0.05 # Min raytrace distance (m)

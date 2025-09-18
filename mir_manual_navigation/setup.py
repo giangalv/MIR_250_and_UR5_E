@@ -24,10 +24,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'manual_mode = mir_manual_navigation.manual_mode:main',
             'cloud_transformation = mir_manual_navigation.cloud_transformation:main',
             'encoder_to_joint_state = mir_manual_navigation.encoder_to_joint_state:main',
-            'initial_position = mir_manual_navigation.initial_position:main',
+            'initial_position_mir = mir_manual_navigation.initial_position_mir:main',
         ],
     },
 )

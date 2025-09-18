@@ -23,9 +23,6 @@ setup(
     entry_points={
         'console_scripts': [
             'mir_bridge = mir_driver.mir_bridge:main',
-            'time_synchronizer = mir_driver.time_synchronizer:main',
-            'tf_static_publisher = mir_driver.tf_static_republisher:main',
-            'tf_republisher = mir_driver.tf_republisher:main',
         ],
     },
 )
