@@ -265,16 +265,19 @@ class GraphNavController(Node):
             # --- Get node parameters ---
             goal_x, goal_y, goal_yaw, node_data = self.get_node_data(to_node)
 
-            self.get_logger().info(f"➡️ Sending robot to node {to_node}: ({goal_x:.2f}, {goal_y:.2f}, yaw={goal_yaw:.2f})")
+            # --- Set navigation defaults parameters ---
+
+            # --- Apply dynamic reconfig (from node_data and the edge_data) for the edge
 
             # --- Execute navigation ---
+            self.get_logger().info(f"➡️ Sending robot to node {to_node}: ({goal_x:.2f}, {goal_y:.2f}, yaw={goal_yaw:.2f})")
             success = self.go_to_pose_and_wait(goal_x, goal_y, goal_yaw)
             if not success:
                 self.get_logger().error(f"❌ Failed to reach node {to_node}, aborting path.")
                 return
 
             self.get_logger().info(f"✅ Arrived at node {to_node}, waiting before next...")
-            time.sleep(5)  # configurable pause
+            time.sleep(5)  # configurable pause ### future labels actions
 
         self.get_logger().info(f"🎉 Completed path to node {path[-1]}.")
 
@@ -338,8 +341,7 @@ class GraphNavController(Node):
 
             if start_node == -1:
                 self.get_logger().info('Exiting interactive navigation.')
-                rclpy.shutdown()
-                sys.exit(0)
+                raise SystemExit
 
             if start_node not in self.nodes:
                 print(f'Node {start_node} not present in graph. Available nodes: {list(self.nodes.keys())}')
@@ -371,24 +373,23 @@ class GraphNavController(Node):
 
             if goal_node == -1:
                 self.get_logger().info('Exiting interactive navigation.')
-                rclpy.shutdown()
-                sys.exit(0)
+                raise SystemExit
 
             if goal_node not in node_ids:
                 print(f'Node {goal_node} not present in graph. Available nodes: {node_ids}')
                 continue
-
-            try:
-                path = nx.shortest_path(self.DG, source=start_node, target=goal_node, weight='weight', method='dijkstra') # Supported options: ‘dijkstra’, ‘bellman-ford’
-                total_cost = nx.shortest_path_length(self.DG, source=start_node, target=goal_node, weight='weight')
-                self.get_logger().info(f"Shortest path from {start_node} to {goal_node}: {path} (cost: {total_cost})")
-                self.execute_path(path)
-                start_node = goal_node
-            except nx.NetworkXNoPath:
-                self.get_logger().info(f"No path found from {start_node} to {goal_node}")
-                path = []
-                total_cost = None
-                continue
+            else:
+                try:
+                    path = nx.shortest_path(self.DG, source=start_node, target=goal_node, weight='weight', method='dijkstra') # Supported options: ‘dijkstra’, ‘bellman-ford’
+                    total_cost = nx.shortest_path_length(self.DG, source=start_node, target=goal_node, weight='weight')
+                    self.get_logger().info(f"Shortest path from {start_node} to {goal_node}: {path} (cost: {total_cost})")
+                    self.execute_path(path)
+                    start_node = goal_node
+                except nx.NetworkXNoPath:
+                    self.get_logger().info(f"No path found from {start_node} to {goal_node}")
+                    path = []
+                    total_cost = None
+                    continue
 
     # ----------------------
     # Shutdown helper
@@ -405,9 +406,12 @@ def main(args=None):
         rclpy.spin(node)
     except KeyboardInterrupt:
         node.get_logger().info('KeyboardInterrupt received, shutting down.')
+    except SystemExit:
+        pass  # clean exit from goal_node == -1
     finally:
         node.destroy_node()
         rclpy.shutdown()
+
 
 
 if __name__ == '__main__':
