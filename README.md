@@ -39,13 +39,16 @@ sudo apt install -y \
     ros-humble-pcl-conversions \
     ros-humble-pcl-msgs \
     ros-humble-foxglove-bridge \
-    ros-humble-librealsense2*
+    ros-humble-librealsense2 \
+    ros-humble-tf-transformations \
+    ros-humble-nav2*
 
-# Optional: Install all nav2 packages
-sudo apt install -y ros-humble-nav2-*
+sudo apt install xterm \
+sudo apt install python3-websocket*
 ```
 ### 5. Install Python Dependencies
 ```bash
+pip install websocket-client
 pip install networkx
 ```
 ### 6. Resolve System Dependencies
@@ -354,6 +357,8 @@ ros2 launch graph_based_navigation_system graph_nav_controller_launch.py
 
 #########################################################################
 Not yet implemented: 
+* UR5e
+and ...
 # Gazebo demo (mapping)
 
 ```bash
@@ -381,6 +386,5 @@ ros2 launch mir_navigation amcl.py use_sim_time:=true map:=$(ros2 pkg prefix mir
 ros2 launch mir_navigation navigation.py use_sim_time:=true
 ```
 ##########################################################################
-
 
 
