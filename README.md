@@ -1,5 +1,5 @@
-# MIR 250 & UR5e
-This is a ROS2 package for MiR 250 and UR5e series.
+# MIR 250
+This is a ROS2 package for MiR 250 on Humble.
 
 # Prerequisites
 * Ubuntu 22.04
@@ -354,8 +354,6 @@ ros2 launch graph_based_navigation_system graph_nav_controller_launch.py
 
 #########################################################################
 Not yet implemented: 
-* UR5e
-and ...
 # Gazebo demo (mapping)
 
 ```bash
